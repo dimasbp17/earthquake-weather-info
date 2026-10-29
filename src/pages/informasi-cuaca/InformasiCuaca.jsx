@@ -1,17 +1,47 @@
-import { Card } from '@material-tailwind/react';
-import React from 'react';
-import Select from 'react-select';
+import { useState } from 'react';
+import { TbMapSearch } from 'react-icons/tb';
+import PageHeader from '../../components/PageHeader';
 import SelectWilayah from '../../components/inputs/SelectWilayah';
+import { DEFAULT_ADM4, toAdm4 } from '../../utils/cuaca';
+import PrakiraanCuaca from './_partials/PrakiraanCuaca';
 
 const InformasiCuaca = () => {
+  const [adm4, setAdm4] = useState(DEFAULT_ADM4);
+
   return (
     <>
-      <div className="w-full p-2">
-        <Card className="w-full py-10 text-center text-white bg-green-700">
-          <h1 className="text-3xl font-bold">Informasi Cuaca</h1>
-        </Card>
+      <PageHeader
+        eyebrow="Meteorologi"
+        title="Prakiraan Cuaca"
+        description="Prakiraan cuaca per 3 jam hingga tingkat kelurahan/desa untuk tiga hari ke depan."
+        image="/assets/images/climate.jpg"
+      />
 
-        <SelectWilayah />
+      <div className="container-page space-y-6 py-8">
+        <div className="card p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+              <TbMapSearch className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">
+                Pilih lokasi
+              </h2>
+              <p className="text-sm text-slate-500">
+                Tentukan wilayah hingga tingkat kelurahan/desa untuk melihat
+                prakiraannya.
+              </p>
+            </div>
+          </div>
+          <SelectWilayah
+            onVillageChange={(village) => setAdm4(toAdm4(village.value))}
+          />
+        </div>
+
+        <PrakiraanCuaca
+          key={adm4}
+          adm4={adm4}
+        />
       </div>
     </>
   );
