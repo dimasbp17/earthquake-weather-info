@@ -1,238 +1,176 @@
-import { Card } from '@material-tailwind/react';
-import axios from 'axios';
-import React, { useEffect, useState } from 'react';
-import dataSigBmkg from './dataSigBmkg';
-import { Link } from 'react-router-dom';
+import {
+  TbArrowsMaximize,
+  TbClock,
+  TbCalendar,
+  TbMapPin,
+  TbRipple,
+  TbWorldLatitude,
+  TbWorldLongitude,
+} from 'react-icons/tb';
+import useFetch from '../../../hooks/useFetch';
+import {
+  BMKG_TEWS_URL,
+  formatRelativeTime,
+  getMagnitudeLevel,
+  parseCoordinates,
+  splitDirasakan,
+} from '../../../utils/gempa';
+import PotensiBadge from '../../../components/ui/PotensiBadge';
+import { ErrorState, LoadingState } from '../../../components/ui/StatusState';
+import GempaMap from './GempaMap';
+import SigTable from './SigTable';
 
 const GempaUpdate = () => {
-  const baseURL = 'https://data.bmkg.go.id/DataMKG/TEWS/';
-  const [gempaTerkini, setGempaTerkini] = useState(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const fetchGempa = async () => {
-      try {
-        const response = await axios.get(
-          'https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json'
-        );
-        setGempaTerkini(response.data.Infogempa.gempa);
-        console.log(response.data.Infogempa.gempa);
-        setLoading(false);
-      } catch (errors) {
-        console.error('Error fetch data:', errors);
-        console.error('Error fetching data:', errors.response);
-        setLoading(false);
-      }
-    };
-    fetchGempa();
-  }, []);
+  const { data, loading, error, updatedAt, refetch } = useFetch(
+    `${BMKG_TEWS_URL}/autogempa.json`,
+    { refreshInterval: 60000 }
+  );
+  const gempa = data?.Infogempa?.gempa;
 
-  const SIG_HEAD = [
-    'Skala SIG BMKG',
-    'Warna',
-    'Deskripsi Sederhana',
-    'Deskripsi Rinci',
-    'Skala MMI',
-    'PGA (gal)',
+  if (loading && !gempa) return <LoadingState label="Memuat gempa terbaru…" />;
+  if (error && !gempa) return <ErrorState onRetry={refetch} />;
+  if (!gempa) return null;
+
+  const level = getMagnitudeLevel(gempa.Magnitude);
+  const coordinates = parseCoordinates(gempa.Coordinates);
+  const shakemapUrl = `${BMKG_TEWS_URL}/${gempa.Shakemap}`;
+
+  const details = [
+    { icon: TbCalendar, label: 'Tanggal', value: gempa.Tanggal },
+    { icon: TbClock, label: 'Waktu', value: gempa.Jam },
+    { icon: TbRipple, label: 'Kedalaman', value: gempa.Kedalaman },
+    { icon: TbWorldLatitude, label: 'Lintang', value: gempa.Lintang },
+    { icon: TbWorldLongitude, label: 'Bujur', value: gempa.Bujur },
   ];
 
   return (
-    <>
-      <div className="w-full">
-        <Card className="p-5">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold text-black">
-              Update Gempa Terkini
-            </h1>
-            <div className="flex items-center justify-center">
-              <span className="bg-red-500 rounded-full size-3"></span>
-              <span className="absolute bg-red-500 rounded-full size-5 animate-ping"></span>
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="card overflow-hidden lg:col-span-2">
+          <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-start">
+            <div className="flex shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-900 px-7 py-5 text-white">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                Magnitudo
+              </span>
+              <span className="tabular mt-1 text-5xl font-semibold tracking-tight">
+                {gempa.Magnitude}
+              </span>
+              <span className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-300">
+                <span className={`size-2 rounded-full ${level.solid}`} />
+                {level.label}
+              </span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+                </span>
+                {formatRelativeTime(gempa.DateTime)}
+                {updatedAt && (
+                  <span className="text-slate-400">
+                    · diperbarui otomatis tiap menit
+                  </span>
+                )}
+              </div>
+              <h2 className="mt-2 flex gap-2 text-xl font-semibold leading-snug text-slate-900">
+                <TbMapPin className="mt-1 size-5 shrink-0 text-slate-400" />
+                {gempa.Wilayah}
+              </h2>
+              <div className="mt-4">
+                <PotensiBadge potensi={gempa.Potensi} />
+              </div>
             </div>
           </div>
 
-          <div className="my-5 text-black">
-            {loading ? (
-              <div className="text-center">
-                <p>Loading data gempa...</p>
+          <dl className="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-5">
+            {details.map(({ icon: Icon, label, value }) => (
+              <div
+                key={label}
+                className="border-b border-r border-slate-100 p-4 last:border-r-0 sm:border-b-0"
+              >
+                <dt className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Icon className="size-3.5" />
+                  {label}
+                </dt>
+                <dd className="tabular mt-1 text-sm font-semibold text-slate-900">
+                  {value}
+                </dd>
               </div>
-            ) : gempaTerkini ? (
-              <div className="grid grid-cols-12 gap-5 ">
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md ">
-                    Tanggal
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Tanggal}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Jam
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Jam}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Magnitude
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Magnitude} SR
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Kedalaman
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Kedalaman}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Wilayah
-                  </Card>
-                  <span className="mt-2 text-base font-semibold text-black ">
-                    {gempaTerkini.Wilayah}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Koordinat
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Coordinates}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Lintang
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Lintang}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Bujur
-                  </Card>
-                  <span className="mt-5 text-lg font-bold text-black">
-                    {gempaTerkini.Bujur}
-                  </span>
-                </Card>
+            ))}
+          </dl>
 
-                <Card className="flex items-center justify-center col-span-3 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Potensi
-                  </Card>
-                  <span className="mt-2 text-base font-semibold text-justify text-black">
-                    {gempaTerkini.Potensi}
-                  </span>
-                </Card>
-                <Card className="flex items-center justify-center col-span-9 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Dirasakan
-                  </Card>
-                  <span className="mt-5">
-                    {gempaTerkini.Dirasakan.split(',').map((area, index) => (
-                      <span
-                        key={index}
-                        className="p-2 ml-2 text-sm text-white bg-orange-600 rounded-md"
-                      >
-                        {area.trim()}
-                      </span>
-                    ))}
-                  </span>
-                </Card>
-
-                <Card className="flex items-center justify-center col-span-6 p-2 border bg-blue-gray-50">
-                  <Card className="w-full p-1 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Shakemap
-                  </Card>
-                  <img
-                    src={`${baseURL}/${gempaTerkini.Shakemap}`}
-                    alt="Posisi Gempa"
-                    className="my-2 "
-                  />
-                </Card>
-                <Card className="col-span-6 p-2 border h-fit bg-blue-gray-50">
-                  <Card className="w-full p-1 mb-3 text-base font-medium text-center text-white bg-green-800 rounded-md">
-                    Skala Intensitas Gempabumi (SIG) BMKG
-                  </Card>
-                  <div className="w-full overflow-x-auto border border-gray-300 rounded-lg scrollbar-hide">
-                    <table className="w-full overflow-hidden text-left border rounded-lg table-auto min-w-max">
-                      <thead>
-                        <tr>
-                          {SIG_HEAD.map((head) => (
-                            <th
-                              key={head}
-                              className="p-4 text-center text-white bg-blue-500 border border-b"
-                            >
-                              {head}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dataSigBmkg.map((sig, index) => (
-                          <tr
-                            key={index}
-                            className="text-sm border-b border-gray-500 text-start"
-                            style={{ backgroundColor: sig.hexa }}
-                          >
-                            <td className="p-3 text-center text-black border border-gray-300">
-                              {sig.skala}
-                            </td>
-                            <td className="p-3 text-black border border-gray-300">
-                              {sig.warna}
-                            </td>
-                            <td className="p-3 text-black border border-gray-300">
-                              {sig.deskripsiSederhana}
-                            </td>
-                            <td className="p-3 text-black border border-gray-300">
-                              {sig.deskripsiRinci}
-                            </td>
-                            <td className="p-3 text-black border border-gray-300">
-                              {sig.skalaMmi}
-                            </td>
-                            <td className="p-3 text-center text-black border border-gray-300">
-                              {sig.pga}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <span className="my-5 text-black">
-                    Sumber :{' '}
-                    <Link
-                      to={
-                        'https://www.bmkg.go.id/gempabumi/skala-intensitas-gempabumi.bmkg'
-                      }
-                      className="text-blue-600"
+          {gempa.Dirasakan && (
+            <div className="border-t border-slate-100 p-6">
+              <h3 className="card-title">Wilayah dirasakan (skala MMI)</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {splitDirasakan(gempa.Dirasakan).map((area) => {
+                  const [scale, ...name] = area.split(' ');
+                  return (
+                    <span
+                      key={area}
+                      className="inline-flex items-center overflow-hidden rounded-md border border-slate-200 text-xs"
                     >
-                      https://www.bmkg.go.id/gempabumi/skala-intensitas-gempabumi.bmkg
-                    </Link>
-                  </span>
-                </Card>
+                      <span className="bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+                        {scale}
+                      </span>
+                      <span className="px-2 py-1 text-slate-600">
+                        {name.join(' ')}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
-                {/* <span className="flex justify-center col-span-6 text-lg font-bold">
-                  <img
-                    src={`${baseURL}/${gempaTerkini.Shakemap}`}
-                    alt="Posisi Gempa"
-                    // className="size-[500px]"
-                  />
-                </span> */}
-              </div>
-            ) : (
-              <div className="text-center text-red-500">
-                <p>Data gempa tidak tersedia.</p>
-              </div>
-            )}
+        <div className="card flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <h3 className="card-title">Peta guncangan</h3>
+            <a
+              href={shakemapUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900"
+            >
+              <TbArrowsMaximize className="size-3.5" />
+              Perbesar
+            </a>
           </div>
-        </Card>
+          <a
+            href={shakemapUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex flex-1 items-center justify-center bg-slate-50"
+          >
+            <img
+              src={shakemapUrl}
+              alt={`Shakemap gempa ${gempa.Wilayah}`}
+              className="max-h-[420px] w-full object-contain"
+            />
+          </a>
+        </div>
       </div>
-    </>
+
+      {!Number.isNaN(coordinates.lat) && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <h3 className="card-title">Lokasi episenter</h3>
+            <span className="tabular text-xs text-slate-500">
+              {gempa.Lintang} · {gempa.Bujur}
+            </span>
+          </div>
+          <GempaMap
+            list={[gempa]}
+            className="h-80"
+          />
+        </div>
+      )}
+
+      <SigTable />
+    </div>
   );
 };
 

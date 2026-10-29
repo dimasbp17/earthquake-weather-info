@@ -1,8 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
 
-const SelectWilayah = () => {
+const WILAYAH_API = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+
+const toOptions = (items) =>
+  items.map((item) => ({ value: item.id, label: item.name }));
+
+// Gaya react-select disamakan dengan input lain di aplikasi.
+const selectClassNames = {
+  control: ({ isFocused, isDisabled }) =>
+    `!min-h-[42px] !rounded-lg !shadow-none ${
+      isFocused
+        ? '!border-teal-600 !ring-2 !ring-teal-600/15'
+        : '!border-slate-200 hover:!border-slate-300'
+    } ${isDisabled ? '!bg-slate-50' : '!bg-white'}`,
+  placeholder: () => '!text-slate-400 !text-sm',
+  singleValue: () => '!text-slate-900 !text-sm',
+  input: () => '!text-sm',
+  menu: () =>
+    '!rounded-lg !border !border-slate-200 !shadow-lg !overflow-hidden !z-30',
+  option: ({ isSelected, isFocused }) =>
+    `!text-sm ${
+      isSelected
+        ? '!bg-slate-900 !text-white'
+        : isFocused
+        ? '!bg-slate-100 !text-slate-900'
+        : '!text-slate-700'
+    }`,
+  indicatorSeparator: () => '!hidden',
+};
+
+const Field = ({ label, children }) => (
+  <label className="block">
+    <span className="mb-1.5 block text-xs font-medium text-slate-500">
+      {label}
+    </span>
+    {children}
+  </label>
+);
+
+const SelectWilayah = ({ onVillageChange }) => {
   const [options, setOptions] = useState([]); // Provinsi
   const [regencyOptions, setRegencyOptions] = useState([]); // Kabupaten/Kota
   const [districtOptions, setDistrictOptions] = useState([]); // Kecamatan
@@ -11,157 +49,109 @@ const SelectWilayah = () => {
   const [selectedProvince, setSelectedProvince] = useState(null);
   const [selectedRegency, setSelectedRegency] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [selectedVillage, setSelectedVillage] = useState(null);
 
   // Fetch provinsi saat komponen dimuat
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const response = await axios.get(
-          'https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'
-        );
-        const provinces = response.data.map((province) => ({
-          value: province.id, // ID provinsi
-          label: province.name, // Nama provinsi
-        }));
-        setOptions(provinces);
-        setLoading(false);
+        const response = await axios.get(`${WILAYAH_API}/provinces.json`);
+        setOptions(toOptions(response.data));
       } catch (error) {
         console.error('Error fetching provinces:', error);
+      } finally {
         setLoading(false);
       }
     };
     fetchProvinces();
   }, []);
 
-  // Fetch kabupaten/kota berdasarkan provinsi yang dipilih
-  const fetchRegencies = async (provinceId) => {
+  const fetchOptions = async (path, setter) => {
     try {
-      const response = await axios.get(
-        `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${provinceId}.json`
-      );
-      const regencies = response.data.map((regency) => ({
-        value: regency.id, // ID kabupaten/kota
-        label: regency.name, // Nama kabupaten/kota
-      }));
-      setRegencyOptions(regencies);
-      setDistrictOptions([]); // Reset district options
-      setVillageOptions([]); // Reset village options
-      setSelectedRegency(null); // Reset selected regency
-      setSelectedDistrict(null); // Reset selected district
+      const response = await axios.get(`${WILAYAH_API}/${path}`);
+      setter(toOptions(response.data));
     } catch (error) {
-      console.error('Error fetching regencies:', error);
-    }
-  };
-
-  // Fetch kecamatan berdasarkan kabupaten/kota yang dipilih
-  const fetchDistricts = async (regencyId) => {
-    try {
-      const response = await axios.get(
-        `https://www.emsifa.com/api-wilayah-indonesia/api/districts/${regencyId}.json`
-      );
-      const districts = response.data.map((district) => ({
-        value: district.id, // ID kecamatan
-        label: district.name, // Nama kecamatan
-      }));
-      setDistrictOptions(districts);
-    } catch (error) {
-      console.error('Error fetching districts:', error);
-    }
-  };
-
-  // Fetch kelurahan berdasarkan kecamatan yang dipilih
-  const fetchVillages = async (districtId) => {
-    try {
-      const response = await axios.get(
-        `https://www.emsifa.com/api-wilayah-indonesia/api/villages/${districtId}.json`
-      );
-      const villages = response.data.map((village) => ({
-        value: village.id, // ID kelurahan
-        label: village.name, // Nama kelurahan
-      }));
-      setVillageOptions(villages);
-    } catch (error) {
-      console.error('Error fetching villages:', error);
+      console.error(`Error fetching ${path}:`, error);
     }
   };
 
   const handleProvinceChange = (selectedOption) => {
-    setSelectedProvince(selectedOption); // Simpan provinsi yang dipilih
-    fetchRegencies(selectedOption.value); // Ambil kabupaten/kota berdasarkan provinsi
+    setSelectedProvince(selectedOption);
+    setSelectedRegency(null);
+    setSelectedDistrict(null);
+    setSelectedVillage(null);
+    setDistrictOptions([]);
+    setVillageOptions([]);
+    fetchOptions(`regencies/${selectedOption.value}.json`, setRegencyOptions);
   };
 
   const handleRegencyChange = (selectedOption) => {
-    setSelectedRegency(selectedOption); // Simpan kabupaten/kota yang dipilih
-    fetchDistricts(selectedOption.value); // Ambil kecamatan berdasarkan kabupaten/kota
-    setVillageOptions([]); // Reset village options when regency changes
-    setSelectedDistrict(null); // Reset selected district
+    setSelectedRegency(selectedOption);
+    setSelectedDistrict(null);
+    setSelectedVillage(null);
+    setVillageOptions([]);
+    fetchOptions(`districts/${selectedOption.value}.json`, setDistrictOptions);
   };
 
   const handleDistrictChange = (selectedOption) => {
-    setSelectedDistrict(selectedOption); // Simpan kecamatan yang dipilih
-    fetchVillages(selectedOption.value); // Ambil kelurahan berdasarkan kecamatan
+    setSelectedDistrict(selectedOption);
+    setSelectedVillage(null);
+    fetchOptions(`villages/${selectedOption.value}.json`, setVillageOptions);
   };
 
   const handleVillageChange = (selectedOption) => {
-    console.log('Selected village:', selectedOption);
-    // Logika lain berdasarkan kelurahan yang dipilih
+    setSelectedVillage(selectedOption);
+    onVillageChange?.(selectedOption);
+  };
+
+  const commonProps = {
+    classNames: selectClassNames,
+    noOptionsMessage: () => 'Tidak ditemukan',
   };
 
   return (
-    <>
-      <div className="w-full p-2">
-        <div className="container p-4 mx-auto">
-          <h1 className="mb-4 text-2xl font-bold">Pilih Provinsi</h1>
-          {loading ? (
-            <p>Loading provinces...</p>
-          ) : (
-            <Select
-              options={options}
-              onChange={handleProvinceChange}
-              placeholder="Pilih Provinsi"
-              className="basic-single"
-              classNamePrefix="select"
-            />
-          )}
-        </div>
-
-        <div className="container p-4 mx-auto">
-          <h1 className="mb-4 text-2xl font-bold">Pilih Kabupaten / Kota</h1>
-          <Select
-            options={regencyOptions}
-            onChange={handleRegencyChange}
-            placeholder="Pilih Kabupaten / Kota"
-            className="basic-single"
-            classNamePrefix="select"
-            isDisabled={!selectedProvince} // Nonaktifkan jika provinsi belum dipilih
-          />
-        </div>
-
-        <div className="container p-4 mx-auto">
-          <h1 className="mb-4 text-2xl font-bold">Pilih Kecamatan</h1>
-          <Select
-            options={districtOptions}
-            onChange={handleDistrictChange}
-            placeholder="Pilih Kecamatan"
-            className="basic-single"
-            classNamePrefix="select"
-            isDisabled={!selectedRegency} // Nonaktifkan jika kabupaten/kota belum dipilih
-          />
-        </div>
-
-        <div className="container p-4 mx-auto">
-          <h1 className="mb-4 text-2xl font-bold">Pilih Kelurahan</h1>
-          <Select
-            options={villageOptions}
-            onChange={handleVillageChange}
-            placeholder="Pilih Kelurahan"
-            className="basic-single"
-            classNamePrefix="select"
-            isDisabled={!selectedDistrict} // Nonaktifkan jika kecamatan belum dipilih
-          />
-        </div>
-      </div>
-    </>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Field label="Provinsi">
+        <Select
+          {...commonProps}
+          options={options}
+          value={selectedProvince}
+          onChange={handleProvinceChange}
+          isLoading={loading}
+          placeholder="Pilih provinsi"
+        />
+      </Field>
+      <Field label="Kabupaten / Kota">
+        <Select
+          {...commonProps}
+          options={regencyOptions}
+          value={selectedRegency}
+          onChange={handleRegencyChange}
+          placeholder="Pilih kabupaten / kota"
+          isDisabled={!selectedProvince}
+        />
+      </Field>
+      <Field label="Kecamatan">
+        <Select
+          {...commonProps}
+          options={districtOptions}
+          value={selectedDistrict}
+          onChange={handleDistrictChange}
+          placeholder="Pilih kecamatan"
+          isDisabled={!selectedRegency}
+        />
+      </Field>
+      <Field label="Kelurahan / Desa">
+        <Select
+          {...commonProps}
+          options={villageOptions}
+          value={selectedVillage}
+          onChange={handleVillageChange}
+          placeholder="Pilih kelurahan / desa"
+          isDisabled={!selectedDistrict}
+        />
+      </Field>
+    </div>
   );
 };
 

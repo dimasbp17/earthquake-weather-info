@@ -1,70 +1,54 @@
 import { useState } from 'react';
+import { TbActivity, TbListDetails, TbUsersGroup } from 'react-icons/tb';
+import PageHeader from '../../components/PageHeader';
 import GempaUpdate from './_partials/GempaUpdate';
 import GempaDirasakan from './_partials/GempaDirasakan';
 import GempaTerkini from './_partials/GempaTerkini';
-import { Card } from '@material-tailwind/react';
-import RealTimeClock from '../../components/RealTimeClock';
+
+const TABS = [
+  { id: 'update', label: 'Gempa Terbaru', icon: TbActivity, component: GempaUpdate },
+  { id: 'terkini', label: 'Gempa M 5.0+', icon: TbListDetails, component: GempaTerkini },
+  { id: 'dirasakan', label: 'Gempa Dirasakan', icon: TbUsersGroup, component: GempaDirasakan },
+];
 
 const InformasiGempa = () => {
-  const [activeTab, setActiveTab] = useState(1);
+  const [activeTab, setActiveTab] = useState(TABS[0].id);
+  const ActiveComponent = TABS.find((tab) => tab.id === activeTab).component;
 
   return (
     <>
-      <div className="p-2">
-        <Card className="w-full py-10 text-center text-white bg-[url('/assets/images/gempa-wp.jpg')] object-cover bg-black/60 bg-blend-overlay">
-          <h1 className="text-3xl font-bold">Informasi Gempa</h1>
-        </Card>
-        <Card className="w-full mx-auto my-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex p-2">
-                <button
-                  className={`py-2 px-4 font-semibold border-b border-green-800 rounded-t-lg ${
-                    activeTab === 1
-                      ? 'text-white bg-green-800'
-                      : 'text-gray-500'
-                  }`}
-                  onClick={() => setActiveTab(1)}
-                >
-                  Gempa Update
-                </button>
-                <button
-                  className={`py-2 px-4 font-semibold  border-b border-green-800 rounded-t-lg ${
-                    activeTab === 2
-                      ? 'text-white bg-green-800'
-                      : 'text-gray-500'
-                  }`}
-                  onClick={() => setActiveTab(2)}
-                >
-                  Gempa Dirasakan
-                </button>
-                <button
-                  className={`py-2 px-4 font-semibold border-b border-green-800 rounded-t-lg ${
-                    activeTab === 3
-                      ? ' text-white bg-green-800'
-                      : 'text-gray-500'
-                  }`}
-                  onClick={() => setActiveTab(3)}
-                >
-                  Gempa Terkini
-                </button>
-              </div>
-            </div>
-            <div>
-              <RealTimeClock />
-            </div>
-          </div>
+      <PageHeader
+        eyebrow="Geofisika"
+        title="Informasi Gempa Bumi"
+        description="Data kegempaan terkini di wilayah Indonesia dari sistem Tsunami Early Warning System (TEWS) BMKG."
+        image="/assets/images/gempa-wp.jpg"
+      />
 
-          <div className="flex justify-between">
-            {activeTab === 1 ? (
-              <GempaUpdate />
-            ) : activeTab === 2 ? (
-              <GempaDirasakan />
-            ) : (
-              <GempaTerkini />
-            )}
-          </div>
-        </Card>
+      <div className="container-page py-8">
+        <div
+          role="tablist"
+          className="mb-6 inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-card scrollbar-hide"
+        >
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => setActiveTab(id)}
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === id
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <ActiveComponent />
       </div>
     </>
   );
